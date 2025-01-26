@@ -64,21 +64,13 @@ func cleanGeoJSONDir(state string) {
 		components := strings.Split(fileNameWithoutExtTrimSuffix(file.Name()), "-")
 		suffixDistrict, _ := strconv.Atoi(components[len(components)-1])
 		// propertiesDistrict, _ := strconv.Atoi(fcGeojson.Features[0].Properties.District)
-		propertiesDistrict := fcGeojson.Features[0].Properties.District
-		altPropertiesDistrict := fcGeojson.Features[0].Properties.Districtno
-		alt2PropertiesDistrict := fcGeojson.Features[0].Properties.DistrictI
+		propertiesDistrict := fcGeojson.Features[0].Properties.GetDistrictInt()
 
 		// log.Printf("s: %d, p: %d a: %d", suffixDistrict, propertiesDistrict, altPropertiesDistrict)
 		district := suffixDistrict
 		if suffixDistrict != propertiesDistrict && propertiesDistrict != 0 {
-			log.Printf("district mismatch: suffix was %d but properties said %d (defaults to a property if not 0)", suffixDistrict, propertiesDistrict)
+			log.Printf("district mismatch: suffix was %d but properties said %d (used property)", suffixDistrict, propertiesDistrict)
 			district = propertiesDistrict
-		} else if suffixDistrict != altPropertiesDistrict && altPropertiesDistrict != 0 {
-			log.Printf("district mismatch: suffix was %d but altProperties said %d (defaults to a property if not 0)", suffixDistrict, altPropertiesDistrict)
-			district = altPropertiesDistrict
-		} else if suffixDistrict != alt2PropertiesDistrict && alt2PropertiesDistrict != 0 {
-			log.Printf("district mismatch: suffix was %d but alt2Properties said %d (defaults to a property if not 0)", suffixDistrict, alt2PropertiesDistrict)
-			district = alt2PropertiesDistrict
 		} else {
 			log.Printf("no property district number or it was correct, using suffix: %d", suffixDistrict)
 		}
@@ -140,9 +132,24 @@ type FCGeoJSON struct {
 }
 
 type FCProperties struct {
-	District   int // many states use this
-	Districtno int // MI special case
-	DistrictI  int `json:"DISTRICT_I"` // LA special case
+	District interface{} // Change to interface{} to accept both string and int
+}
+
+// Add this method to handle custom unmarshaling
+func (p *FCProperties) GetDistrictInt() int {
+	switch v := p.District.(type) {
+	case float64:
+		return int(v)
+	case string:
+		if v == "" {
+			return 0
+		}
+		// Try to convert string to int, return 0 if fails
+		if num, err := strconv.Atoi(v); err == nil {
+			return num
+		}
+	}
+	return 0
 }
 
 type WriteGeoJSON struct {
